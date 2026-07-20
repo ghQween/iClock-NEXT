@@ -1,9 +1,0 @@
-{
-  "name": "iclock",
-  "private": true,
-  "description": "Single-file time-clock PWA (index.html). This package.json exists only to alias the test/benchmark scripts under test/ — there is no build step and no runtime dependencies.",
-  "scripts": {
-    "test": "node test/correctness.test.js",
-    "bench": "node test/perf-benchmark.js"
-  }
-}
