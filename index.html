@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<!-- iOS turns bare numbers (punch times, hours, rates) into tap-to-call links
+     inside text nodes; disabling that keeps the timesheet readable. -->
+<meta name="format-detection" content="telephone=no">
+<meta name="theme-color" content="#004B87">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="TimeClock">
+<title>TimeClock</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:ital,wght@0,600;0,700&family=Barlow+Semi+Condensed:ital,wght@1,900&family=Barlow:wght@400;500;600&family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="styles.css">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="assets/icon.svg">
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <div class="logo">
+      <button type="button" class="logo-eagle" id="logoEagle" aria-label="Application icon">🦅</button>
+      <div class="logo-text">
+        <span class="logo-main"><span style="text-transform:lowercase;">i</span>Clock <span id="betaBadge" style="font-size:10.4px;font-weight:400;text-transform:lowercase;color:#BCBCBC;opacity:1;">(beta 4)</span></span>
+        <span class="logo-sub" id="logoSub">Mobile Time Clock</span>
+      </div>
+    </div>
+    <button class="settings-btn" onclick="switchTab('settings')" aria-label="Open settings"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></svg></button>
+  </div>
+  <div class="header-red-bar"></div>
+  <div class="demo-bar" id="demoBar" hidden>
+    <span class="demo-bar-text" id="demoBarText">DEMO MODE — NOTHING IS SAVED</span>
+    <button type="button" class="demo-exit-btn" id="demoExitBtn" onclick="exitDemoMode()">EXIT</button>
+  </div>
+  <!-- Shown whenever a localStorage write fails (Private Browsing, storage
+       full/blocked). Persistent, unlike the toast — stays until a save
+       succeeds, so a failed save can never masquerade as a green one. -->
+  <div class="save-error-bar" id="saveErrorBanner" role="alert" hidden></div>
+  <div class="update-bar" id="updateBanner" hidden>
+    <span class="update-bar-text" id="updateBarText">Update available</span>
+    <button type="button" class="update-reload-btn" id="updateReloadBtn" onclick="reloadForUpdate()">Reload now</button>
+  </div>
+</header>
+
+<div class="tabs" role="tablist">
+  <button type="button" class="tab active" role="tab" aria-selected="true"  onclick="switchTab('clock')"    id="tab-clock">Clock</button>
+  <button type="button" class="tab"        role="tab" aria-selected="false" onclick="switchTab('history')"  id="tab-history">History</button>
+  <button type="button" class="tab"        role="tab" aria-selected="false" onclick="switchTab('settings')" id="tab-settings">Settings</button>
+</div>
+
+<!-- ══ CLOCK PAGE ══ -->
+<div class="page active" id="page-clock">
+
+  <div class="install-hint" id="installHint" hidden>
+    <div class="install-hint-text">
+      <span id="installHintPre"></span><!--
+      iOS share glyph: a box with an arrow rising out of the top. Inline SVG
+      rather than a text approximation so it matches what the user is actually
+      looking for in the Safari toolbar. aria-hidden because the surrounding
+      sentence already names the button; a screen reader should not announce
+      a second, wordless "image" mid-clause.
+   --><svg class="share-glyph" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M12 3.5 L12 14.5" />
+        <path d="M8.4 7.1 L12 3.5 L15.6 7.1" />
+        <path d="M7.2 10.6 H5.6 A1.6 1.6 0 0 0 4 12.2 V19 A1.6 1.6 0 0 0 5.6 20.6 H18.4 A1.6 1.6 0 0 0 20 19 V12.2 A1.6 1.6 0 0 0 18.4 10.6 H16.8" />
+      </svg><span id="installHintPost"></span>
+    </div>
+    <button type="button" class="install-hint-dismiss" id="installHintDismiss" onclick="dismissInstallHint()">Got it</button>
+  </div>
+
+  <div class="clock-face">
+    <div class="live-time" id="liveTime">--:--:--</div>
+    <div class="live-date" id="liveDate">--</div>
+    <div class="status-row">
+      <div class="status-dot" id="statusDot" aria-hidden="true"></div>
+      <span class="status-label" id="statusLabel">Not clocked in</span>
+    </div>
+    <div class="elapsed-time" id="elapsedTime"></div>
+  </div>
+
+  <button class="punch-btn" id="punchBtn" onclick="handlePunch()">CLOCK IN</button>
+  <button type="button" class="route-start-btn" id="routeStartBtn" onclick="handleRouteStart()">+ Start a second route</button>
+
+  <button type="button" class="backup-nudge" id="backupNudge" onclick="switchTab('settings')"></button>
+
+  <div class="section-label" id="lblTodaySummary">Today's Summary</div>
+  <div class="summary-grid">
+    <div class="summary-card">
+      <div class="label" id="lblHours">Hours</div>
+      <div class="value" id="todayHours">0.00</div>
+    </div>
+    <div class="summary-card">
+      <div class="label" id="lblTotalTime">Total Time</div>
+      <div class="value route" id="todayTotal">0.00</div>
+      <div class="route-legs" id="todayTotalSub">Clock in → clock out</div>
+    </div>
+    <div class="summary-card pay-card" id="todayPayCard">
+      <div class="label" id="lblEstPay">Est. Pay</div>
+      <div class="value money" id="todayPay">$0.00</div>
+    </div>
+  </div>
+
+  <div class="section-label" id="lblTodayPunches">Today's Punches</div>
+  <div class="punches-list" id="todayPunches">
+    <div class="empty-state" id="emptyToday">No punches yet today</div>
+  </div>
+
+  <div class="manual-section">
+    <button class="add-manual-btn" id="btnAddManual" onclick="openManualModal()">+ Add Manual Punch</button>
+  </div>
+</div>
+
+<!-- ══ HISTORY PAGE ══ -->
+<div class="page" id="page-history">
+  <div id="historyContent">
+    <div class="empty-state" id="emptyHistory">No history yet</div>
+  </div>
+</div>
+
+<!-- ══ SETTINGS PAGE ══ -->
+<div class="page" id="page-settings">
+  <div class="settings-card">
+    <h3 id="lblPrefsCard">Preferences</h3>
+    <div class="settings-row">
+      <label id="lblLanguage">Language</label>
+      <div class="mode-toggle pref-toggle" role="group" aria-label="Language" onclick="toggleLanguage()">
+        <button type="button" class="mode-btn" id="langEn">English</button>
+        <button type="button" class="mode-btn" id="langEs">Español</button>
+      </div>
+    </div>
+    <div class="settings-row">
+      <label id="lblTimeFormat">Time Format</label>
+      <div class="mode-toggle pref-toggle" role="group" aria-label="Time format" onclick="toggleTimeFormat()">
+        <button type="button" class="mode-btn" id="fmt12">12-hour</button>
+        <button type="button" class="mode-btn" id="fmt24">24-hour</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="settings-card">
+    <h3 id="lblPayCard">Pay Settings</h3>
+    <div class="settings-row">
+      <label for="showPay" id="lblShowPay">Show pay estimates</label>
+      <input type="checkbox" id="showPay" onchange="saveSettings()">
+    </div>
+    <div class="settings-row">
+      <label for="hourlyRate" id="lblHourlyRate">Hourly Rate ($)</label>
+      <input type="number" id="hourlyRate" step="0.25" min="0" inputmode="decimal" placeholder="20.00" onchange="saveSettings()">
+    </div>
+    <div class="settings-row">
+      <label id="lblOtRule">Overtime Rule</label>
+      <div class="mode-toggle pref-toggle" role="group" aria-label="Overtime Rule" onclick="toggleOtRule()">
+        <button type="button" class="mode-btn" id="otRuleDaily">Daily</button>
+        <button type="button" class="mode-btn" id="otRuleWeekly">Weekly</button>
+      </div>
+    </div>
+    <div class="settings-row" id="otThresholdRow">
+      <label for="otThreshold" id="lblOtThreshold">Overtime after (hrs/day)</label>
+      <input type="number" id="otThreshold" step="0.5" min="0" inputmode="decimal" placeholder="8" onchange="saveSettings()">
+    </div>
+    <div class="settings-row" id="otWeeklyThresholdRow">
+      <label for="otWeeklyThreshold" id="lblOtWeeklyThreshold">Overtime after (hrs/week)</label>
+      <input type="number" id="otWeeklyThreshold" step="0.5" min="0" inputmode="decimal" placeholder="40" onchange="saveSettings()">
+    </div>
+    <div class="settings-row" id="weekStartRow">
+      <label id="lblWeekStart">Week Starts On</label>
+      <div class="mode-toggle pref-toggle" role="group" aria-label="Week Starts On" onclick="toggleWeekStart()">
+        <button type="button" class="mode-btn" id="weekStartSun">Sun</button>
+        <button type="button" class="mode-btn" id="weekStartMon">Mon</button>
+      </div>
+    </div>
+    <div class="settings-row">
+      <label for="otMultiplier" id="lblOtMultiplier">Overtime Multiplier</label>
+      <input type="number" id="otMultiplier" step="0.25" min="1" inputmode="decimal" placeholder="1.5" onchange="saveSettings()">
+    </div>
+  </div>
+
+  <div class="settings-card">
+    <h3 id="lblDataCard">Data</h3>
+    <button class="export-btn" id="btnBackup" onclick="exportBackup()">Save a Backup</button>
+    <div class="btn-caption" id="capBackup">A copy of everything, in case you switch phones.</div>
+    <button class="export-btn" id="btnImportBackup" onclick="document.getElementById('importBackupInput').click()">Restore from Backup</button>
+    <div class="btn-caption" id="capImportBackup">Load a backup you saved before.</div>
+    <input type="file" id="importBackupInput" accept=".html,.json" style="display:none" onchange="handleImportBackupChange(event)">
+    <button class="export-btn" id="btnExport" onclick="exportCSV()">Download Hours (Excel)</button>
+    <div class="btn-caption" id="capExportCSV">A spreadsheet of your hours, for payroll or printing.</div>
+    <button class="clear-btn" id="btnClear" onclick="openEraseModal()">Erase All Data</button>
+  </div>
+
+  <div class="version-note">iClock (beta4.0724.26)</div>
+</div>
+
+<!-- ══ MANUAL PUNCH MODAL ══ -->
+<div class="modal-overlay" id="manualModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="manualModalTitle">
+    <div class="modal-title" id="manualModalTitle">Add Manual Punch</div>
+    <div class="dev-note" id="manualDevNote">(under development)</div>
+
+    <div class="mode-toggle" role="tablist">
+      <button type="button" class="mode-btn active" id="modeSingle" onclick="setManualMode('single')">Single Punch</button>
+      <button type="button" class="mode-btn" id="modeLeg" onclick="setManualMode('leg')">Route Leg</button>
+      <button type="button" class="mode-btn" id="modeExtra" onclick="setManualMode('extra')">Extra Route</button>
+    </div>
+
+    <div class="context-hint" id="manualContext"></div>
+
+    <div class="form-row">
+      <label for="manualDate" id="lblManualDate">Date</label>
+      <input type="date" id="manualDate" onchange="updateManualContext()">
+    </div>
+
+    <div id="singleFields">
+      <div class="form-row-two">
+        <div>
+          <label for="manualType" id="lblManualType">Type</label>
+          <select id="manualType">
+            <option value="in">Clock In</option>
+            <option value="depart">Depart to Route</option>
+            <option value="return">Return to P.O.</option>
+            <option value="out">Clock Out</option>
+            <option value="rstart">Route Start (extra)</option>
+            <option value="rend">Route End (extra)</option>
+          </select>
+        </div>
+        <div>
+          <label for="manualTime" id="lblManualTime">Time</label>
+          <input type="time" id="manualTime">
+        </div>
+      </div>
+    </div>
+
+    <div id="legFields" style="display:none">
+      <div class="form-row-two">
+        <div>
+          <label for="legDepart" id="lblLegDepart">Departed at</label>
+          <input type="time" id="legDepart">
+        </div>
+        <div>
+          <label for="legReturn" id="lblLegReturn">Returned at</label>
+          <input type="time" id="legReturn">
+        </div>
+      </div>
+    </div>
+
+    <div id="extraFields" style="display:none">
+      <div class="form-row-two">
+        <div>
+          <label for="extraStart" id="lblExtraStart">Route started at</label>
+          <input type="time" id="extraStart">
+        </div>
+        <div>
+          <label for="extraEnd" id="lblExtraEnd">Route ended at</label>
+          <input type="time" id="extraEnd">
+        </div>
+      </div>
+    </div>
+    <div class="form-row">
+      <label for="manualNote" id="manualNoteLabel">Note (optional)</label>
+      <input type="text" id="manualNote" maxlength="300" placeholder="e.g. Open route adjustment">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="manualCancelBtn" onclick="closeManualModal()">Cancel</button>
+      <button class="btn-save" id="manualSaveBtn" onclick="saveManualPunch()">Add Punch</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ROUTE DESCRIPTOR MODAL ══ -->
+<div class="modal-overlay" id="routeModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="routeModalTitle">
+    <div class="modal-title" id="routeModalTitle">Second Route</div>
+    <div class="form-row">
+      <label for="routeDesc" id="routeDescLabel">Route Descriptor:</label>
+      <input type="text" id="routeDesc" maxlength="60" placeholder="e.g. Route 22">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="routeCancelBtn" onclick="closeRouteModal()">Cancel</button>
+      <button class="btn-save" id="routeStartBtn2" onclick="confirmRouteStart()">Start Route</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ DEMO MODE MODAL ══ -->
+<div class="modal-overlay" id="demoModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="demoModalTitle">
+    <div class="modal-title" id="demoModalTitle">Enter Demo Mode?</div>
+    <div class="demo-modal-body" id="demoModalBody">Try out punches, routes and deletions on a clean slate. Nothing is saved, and your real punches come back when you exit.</div>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="demoCancelBtn" onclick="closeDemoModal()">Cancel</button>
+      <button class="btn-save" id="demoConfirmBtn" onclick="enterDemoMode()">Yes</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ ERASE ALL DATA MODAL ══ -->
+<div class="modal-overlay" id="eraseModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="eraseModalTitle">
+    <div class="modal-title" id="eraseModalTitle">Erase All Data?</div>
+    <div class="erase-warning" id="eraseWarningText">This deletes every clock-in, route, and note on this phone. There's no way to undo it.</div>
+    <div class="erase-backup-status" id="eraseBackupStatus"></div>
+    <button type="button" class="add-manual-btn" id="eraseBackupFirstBtn" onclick="backupThenStay()">Save a Backup First</button>
+    <div class="modal-actions">
+      <button class="btn-cancel" id="eraseCancelBtn" onclick="closeEraseModal()">Cancel</button>
+      <button class="btn-erase" id="eraseConfirmBtn" onclick="confirmEraseAll()">Erase Everything</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<div class="bottom-safe"></div>
+<script type="module" src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="44" fill="#004B87"/>
+  <circle cx="96" cy="96" r="64" fill="none" stroke="#FFFFFF" stroke-width="8"/>
+  <!-- hour hand at 10:10 -->
+  <line x1="96" y1="96" x2="70" y2="78" stroke="#FFFFFF" stroke-width="10" stroke-linecap="round"/>
+  <!-- minute hand at 10 past -->
+  <line x1="96" y1="96" x2="134" y2="74" stroke="#FFFFFF" stroke-width="8" stroke-linecap="round"/>
+  <circle cx="96" cy="96" r="9" fill="#FFFFFF"/>
+</svg>
